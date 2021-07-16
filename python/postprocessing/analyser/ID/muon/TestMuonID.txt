@@ -1,0 +1,7 @@
+pt 25
+eta 2.5
+pog_tight True
+pog_medium False
+dxy 0.3
+dz 0.2
+reliso 0.3
