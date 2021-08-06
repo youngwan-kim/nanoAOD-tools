@@ -1,0 +1,7 @@
+pt 10
+eta 2.4
+pog_tight True
+dxy 0.005
+sip3d 3.0
+dz 0.04
+reliso04 0.07

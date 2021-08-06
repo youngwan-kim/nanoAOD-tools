@@ -1,0 +1,3 @@
+pt 40
+eta 2.5
+pog_tight True

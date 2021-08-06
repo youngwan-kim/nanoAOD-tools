@@ -1,0 +1,6 @@
+pt 10
+eta 2.5
+dxy 0.01
+dz 0.04
+convVeto True
+tightcharge 1
