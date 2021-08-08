@@ -83,8 +83,12 @@ class ExampleAnalysis(Module):
 	  jets.append(rawjet)
 	  jets.sort(key=lambda x : x.p4().Pt())
 
+	h_mupt = []
+	for i in range(0,min(len(muons),4)) :
+	  h_mupt.append(self.__getattr__("muon"+i+"_pt"))
+
 	# this seems so stupid but i don't have any better way to do this yet
-	h_mupt = [self.muon0_pt,self.muon1_pt,self.muon2_pt,self.muon3_pt]
+#	h_mupt = [self.muon0_pt,self.muon1_pt,self.muon2_pt,self.muon3_pt]
 	h_mueta = [self.muon0_eta,self.muon1_eta,self.muon2_eta,self.muon3_eta]
 	h_muphi = [self.muon0_phi,self.muon1_phi,self.muon2_phi,self.muon3_phi]
 	

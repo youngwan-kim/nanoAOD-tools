@@ -14,7 +14,7 @@ def deltaPhi(phi1, phi2):
     dphi = (phi1 - phi2)
     while dphi > pi:
         dphi -= 2 * pi
-    while dphi < -pi:
+    while dphi < -pi :
         dphi += 2 * pi
     return dphi
 

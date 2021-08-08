@@ -13,7 +13,7 @@ import linecache
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 
 
-class ExampleAnalysis(Module):
+class MonojetSR(Module):
     def __init__(self):
         self.writeHistFile = True
 
@@ -21,7 +21,7 @@ class ExampleAnalysis(Module):
         Module.beginJob(self, histFile, histDirName)
 	# define histograms
 	oblist = ['pt','eta','phi'] ; binning=0 ; minval=0 ; maxval=0 ; 
-	histlist = [ROOT.TH1F('HT','HT',100,0,1000),ROOT.TH1F('LT','LT',100,0,1000)]
+	histlist = [ROOT.TH1F('HadronicRecoil_pt','HadronicRecoil_pt',100,0,1000), ROOT.TH1F('HadronicRecoil_phi','HadronicRecoil_phi',60,-3.0,3.0)]
 	for i in range(0,2) :
 	    for ob in oblist :
 	        if ob == 'pt' : 
@@ -51,11 +51,13 @@ class ExampleAnalysis(Module):
 
 	for hist in histlist :
 	    self.addObject(hist)
-
+	
+	self.addObject(ROOT.TH1F('deltaphi','deltaphi',80,-4.0,4.0))
 	self.addObject(ROOT.TH1F('MET_pt','MET_pt',200,0,1000))
 	self.addObject(ROOT.TH1F('MET_phi','MET_phi',60,-3.0,3.0))
 	self.addObject(ROOT.TH1F('Njet','Njet',6,0,6))
 	self.addObject(ROOT.TH1F('Nfatjet','Nfatjet',6,0,6))
+	self.addObject(ROOT.TH1F('Nvtagfatjet','Nvtagfatjet',6,0,6))
 	self.addObject(ROOT.TH1F('Nmu','Nmu',6,0,6))
 	self.addObject(ROOT.TH1F('Nel','Nel',6,0,6))
 	self.addObject(ROOT.TH1F('Npho','Npho',6,0,6))
@@ -67,63 +69,106 @@ class ExampleAnalysis(Module):
 	self.Cutflow.Fill(0)
 	
 	# rawobjects are pt-unsorted collections of objects
-        rawelectrons = Collection(event, "Electron") ; rawmuons = Collection(event, "Muon") ; 
-	rawjets = Collection(event, "Jet") ; rawphotons = Collection(event, "Photon") ; rawfatjets = Collection(event, "FatJet") ;
-	met = Object(event, "MET") 
-	electrons = [] ; muons = []; jets = [] ; photons = [] ; deltaPhiMETJets = [] ; fatjets=[]
-	LT = ROOT.TLorentzVector(); HT = ROOT.TLorentzVector()
+        rawelectrons = Collection(event, "Electron") 
+	rawmuons = Collection(event, "Muon")  
+	rawjets = Collection(event, "Jet")  
+	rawphotons = Collection(event, "Photon") 
+	rawfatjets = Collection(event, "FatJet") 
 
-	# pt sorting lorentz vectors from collections
+	met = Object(event, "MET") 
+	CaloMET = Object(event,"CaloMET") 
+
+	electrons = [] 
+	muons = []
+	jets = [] 
+	photons = [] 
+	deltaPhiRecoilJets = [] 
+	fatjets=[] 
+	vtagfatjets = []
+	
+	HadronicRecoil = ROOT.TLorentzVector() 
+
+	# OBJECT DEFINITION
+	# - HadronicRecoil = MET + (leptons+photons)
+
+	HadronicRecoil += met.met_p4()
+
+	# Electron
+
 	for rawelectron in rawelectrons :
-	  LT += rawelectron.p4()
-#	  if IsCustomElectronID("HNElectronTight",rawelectron) is True :
+	  HadronicRecoil += rawelectron.p4()
           electrons.append(rawelectron)
-          electrons.sort(key=lambda x : x.p4().Pt())
+
+	# Muon
 
 	for rawmuon in rawmuons :
-	  LT += rawmuon.p4()
-	  # Custom IDs can be used so
-	 # if IsCustomMuonID("MonojetTight",rawmuon) is True :
+	  HadronicRecoil += rawmuon.p4()
 	  muons.append(rawmuon)
-	  muons.sort(key=lambda x : x.p4().Pt())
+
+	# Jet
+	# - pT > 30 && |eta| < 2.5 (done)
+	# - Jet-lepton overlap removal for deltaR < 0.4 (TODO)
 
 	for rawjet in rawjets :
-	  HT += rawjet.p4()
-	  jets.append(rawjet)
-	  deltaPhiMETJets.append(deltaPhi(rawjet.p4().Pt(),met.__getattr__("pt")))
-	  jets.sort(key=lambda x : x.p4().Pt())
-
-#	for i in range(0,min(4,len(jets))) :
-#	  deltaPhiMETJets.append(deltaPhi(jets[i].p4().Pt(),met.__getattr__("pt")))
+	  if rawjet.pt > 30 and abs(rawjet.eta) < 2.5 :
+	    if rawjet.jetId is 6 : 
+	      jets.append(rawjet) 
+	
+	# Photon
 
 	for rawphoton in rawphotons :
+	  HadronicRecoil += rawphoton.p4()
 	  photons.append(rawphoton)
-	  photons.sort(key=lambda x : x.p4().Pt())
 	
+	# V-Tagged AK8 Jets
+	# - nominal tagger (WvsQCD, no MD) > 0.458
+
 	for rawfatjet in rawfatjets :   
 	  fatjets.append(rawfatjet)
-	  fatjets.sort(key=lambda x : x.p4().Pt()) 
 
-	# Signal Region Baseline Event Selection
-	# - one or more jets with MET > 250 GeV 
+	for fatjet in fatjets : 
+	  if fatjet.deepTag_WvsQCD > 0.458 :
+	    vtagfatjets.append(fatjet)
+	
+	electrons.sort(key=lambda x : x.p4().Pt()) ; muons.sort(key=lambda x : x.p4().Pt()) ; jets.sort(key=lambda x : x.p4().Pt()) 
+        fatjets.sort(key=lambda x : x.p4().Pt()) ; vtagfatjets.sort(key=lambda x : x.p4().Pt()) 
+
+	if len(jets) is not 0 :
+	  for i in range(0,min(4,len(jets))) :
+	    deltaPhiRecoilJets.append(abs(deltaPhi(jets[i].phi,HadronicRecoil.Pt())))
+
+	# EVENT SELECTION
+
+	# 1. Signal Region Baseline Event Selection
+	# - one or more jets with HadronicRecoil > 250 GeV 
 	# - min(deltaPhi(MET,{jets})>0.5 for QCD suppression
-	# - Lepton and photon vetoing + b-tagged jets
+	# - Lepton and photon vetoing + b-tagged jets (TODO)
 
-	if len(jets) is 0 or met.__getattr__("pt") <= 250 : return False
+	if len(jets) is 0 or HadronicRecoil.Pt() <= 250 : return False
 	self.Cutflow.Fill(1)
-	if min(deltaPhiMETJets) <= 0.5 : return False
+	if min(deltaPhiRecoilJets) <= 0.5 : return False
 	self.Cutflow.Fill(2)
 
-	# Mono-V Selection For Exclusion
+	# 2. Mono-V Selection For Exclusion
 	# - V-Tagged AK-8 Jets with pT>250 GeV + |eta|<2.4
-#	if len(fatjets) is not 0 and fatjets[0].__getattr__("deepTag_WvsQCD") > 0.42 and fatjets[0].__getattr__("pt") > 250 and abs(fatjets[0].__getattr__("eta")) < 2.4 : return False 	
-#	self.Cutflow.Fill(3)
+	# - nominal tagger cut : WvsQCD > 0.458
+	# - pruned mass in [65,120]
 
-	# Monojet SR Selection
-	# - among events that fail the Mono-V selection
-	# - AK4Jets
-	if jets[0].__getattr__("pt") < 100 or abs(jets[0].__getattr__("eta")) > 2.4 : return False
+	if len(vtagfatjets) is not 0 and vtagfatjets[0].pt > 250 and abs(vtagfatjets[0].eta) < 2.4 :
+	  if vtagfatjets[0].msoftdrop > 65 and vtagfatjets[0].msoftdrop < 120 :
+#	    if vtagfatjets[0].neHEF < 0.8 and vtagfatjets[0].chHEF > 0.1 :
+	    return False
 	self.Cutflow.Fill(3)
+
+#	if len(fatjets) is not 0 and fatjets[0].deepTag_WvsQCD > 0.458 and fatjets[0].pt > 250 and abs(fatjets[0].eta) < 2.4 and fatjets[0].msoftdrop > 65 and fatjets[0].msoftdrop < 120 : return False
+
+	# 3. Monojet SR Selection
+	# - among events that fail the Mono-V selection
+	# - Leading AK4 jet : chHEF > 0.1 && neHEF < 0.8
+
+	if jets[0].pt < 100 or abs(jets[0].eta) > 2.4 : return False
+	if jets[0].neHEF >= 0.8 or jets[0].chHEF <= 0.1 : return False
+	self.Cutflow.Fill(4)
 
 	# this seems so stupid but i don't have any better way to do this yet
 	h_mupt = [self.muon0_pt,self.muon1_pt]#self.muon2_pt,self.muon3_pt]
@@ -142,9 +187,9 @@ class ExampleAnalysis(Module):
 	h_jetphi = [self.jet0_phi,self.jet1_phi]#,self.jet2_phi,self.jet3_phi,self.jet4_phi,self.jet5_phi]
 	h_jeteta = [self.jet0_eta,self.jet1_eta]#,self.jet2_eta,self.jet3_eta,self.jet4_eta,self.jet5_eta]y
 
-	h_fatjetpt = [self.fatjet0_pt,self.fatjet1_pt]#,self.jet2_pt,self.jet3_pt,self.jet4_pt,self.jet5_pt]
-	h_fatjetphi = [self.fatjet0_phi,self.fatjet1_phi]#,self.jet2_phi,self.jet3_phi,self.jet4_phi,self.jet5_phi]
-	h_fatjeteta = [self.fatjet0_eta,self.fatjet1_eta]#,self.jet2_eta,self.jet3_eta,self.jet4_eta,self.jet5_eta]y
+	h_fatjetpt = [self.fatjet0_pt,self.fatjet1_pt]
+	h_fatjetphi = [self.fatjet0_phi,self.fatjet1_phi]
+	h_fatjeteta = [self.fatjet0_eta,self.fatjet1_eta]
 
 	for i in range(0,min(len(muons),2)) :
 	    h_mupt[i].Fill(muons[i].p4().Pt())
@@ -166,18 +211,22 @@ class ExampleAnalysis(Module):
 	    h_jeteta[i].Fill(jets[i].p4().Eta())
 	    h_jetphi[i].Fill(jets[i].p4().Phi())
 
-	self.MET_pt.Fill(met.__getattr__("pt"))
-	self.MET_phi.Fill(met.__getattr__("phi"))
+	self.MET_pt.Fill(met.pt)
+	self.MET_phi.Fill(met.phi)
 
 	for i in range(0,min(len(fatjets),2)) :
 	    h_fatjetpt[i].Fill(fatjets[i].p4().Pt())
 	    h_fatjeteta[i].Fill(fatjets[i].p4().Eta())
 	    h_fatjetphi[i].Fill(fatjets[i].p4().Phi())
 
-	self.Nmu.Fill(len(muons)); self.Nel.Fill(len(electrons))
-	self.Njet.Fill(len(jets)); self.Npho.Fill(len(photons)) ; self.Nfatjet.Fill(len(fatjets))
-	self.LT.Fill(LT.Pt()); self.HT.Fill(HT.Pt())
-#	self.LHEpart_pdgid.Fill(LHEparts.GetPdgCode())
+#	self.deltaphi.Fill(min(deltaPhiMETJets)) 
+	self.Nmu.Fill(len(muons)); self.Nel.Fill(len(electrons)) 
+	self.Nvtagfatjet.Fill(len(vtagfatjets))
+	self.Njet.Fill(len(jets))
+	self.Npho.Fill(len(photons))
+	self.Nfatjet.Fill(len(fatjets))
+	self.HadronicRecoil_pt.Fill(HadronicRecoil.Pt())
+	self.HadronicRecoil_phi.Fill(HadronicRecoil.Phi())
 
         return True
 
@@ -205,6 +254,6 @@ for filename in os.listdir(directory) :
 	else : continue
 
 p = PostProcessor(".", files, cut=preselection, branchsel=None, modules=[
-                  ExampleAnalysis()], noOut=True, histFileName=outputname, histDirName="plots")
+                  MonojetSR()], noOut=True, histFileName=outputname, histDirName="plots")
 p.run()
 

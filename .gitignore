@@ -8,3 +8,6 @@ build
 *.d
 *.so
 *.pcm
+*.root
+*.png
+python/postprocessing/analyser/EXO_20_004/

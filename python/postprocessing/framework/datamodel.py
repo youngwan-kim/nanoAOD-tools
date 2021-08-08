@@ -85,6 +85,11 @@ class Object:
             ret.SetPtEtaPhiM(corr_pt, self.eta, self.phi, self.mass)
         return ret
 
+    def met_p4(self) : 
+	ret = ROOT.TLorentzVector()
+	ret.SetPtEtaPhiM(self.pt,0,self.phi,0)
+	return ret
+
     def DeltaR(self, other):
         if isinstance(other, ROOT.TLorentzVector):
             deta = abs(other.Eta() - self.eta)

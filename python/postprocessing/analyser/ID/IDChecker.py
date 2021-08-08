@@ -41,12 +41,12 @@ def CustomIDCheck(linenum,ID,obj) :
   for criteria in IDCriteriaList :
     if "eta" in criteria[0] and abs(obj.p4().Eta()) > float(criteria[1]) :  return False
     if "pt" in criteria[0] and obj.p4().Pt() < float(criteria[1]) : return False  
-    if "pog_tight" in criteria[0] and obj.__getattr__("tightId") is not str2bool(criteria[1]) : return False
-    if "pog_medium" in criteria[0] and obj.__getattr__("mediumId") is not str2bool(criteria[1]) : return False 
-    if "dxy" in criteria[0] and obj.__getattr__("dxy") < float(criteria[1]) :  return False
-    if "dz" in criteria[0] and obj.__getattr__("dz") < float(criteria[1]) :  return False
-    if "reliso" in criteria[0] and obj.__getattr__("pfRelIso03_all") > float(criteria[1]) : return False
-    if "tightcharge" in criteria[0] and obj.__getattr__("tightCharge") is not int(criteria[1]) : return False
+    if "pog_tight" in criteria[0] and obj.tightId is not str2bool(criteria[1]) : return False
+    if "pog_medium" in criteria[0] and obj.mediumId is not str2bool(criteria[1]) : return False 
+    if "dxy" in criteria[0] and obj.dxy < float(criteria[1]) :  return False
+    if "dz" in criteria[0] and obj.dz < float(criteria[1]) :  return False
+    if "reliso" in criteria[0] and obj.pfRelIso03_all > float(criteria[1]) : return False
+    if "tightcharge" in criteria[0] and obj.tightCharge is not int(criteria[1]) : return False
  #   print(ID+" OK")
     return True
 
@@ -60,13 +60,13 @@ def IsCustomMuonID(ID,obj) :
 
     if 'pt' in IDdict and obj.p4().Pt() <= float(IDdict['pt']) : return False  
     if 'eta' in IDdict and abs(obj.p4().Eta()) >= float(IDdict['eta']) :  return False 
-    if 'pog_tight' in IDdict and obj.__getattr__("tightId") is not str2bool(IDdict['pog_tight']) : return False
-    if 'pog_medium' in IDdict and obj.__getattr__("mediumId") is not str2bool(IDdict['pog_medium']) : return False 
-    if 'dxy' in IDdict and obj.__getattr__("dxy") >= float(IDdict['dxy']) :  return False
-    if 'dz' in IDdict and obj.__getattr__("dz") >= float(IDdict['dz']) :  return False
-    if 'reliso03' in IDdict and obj.__getattr__("pfRelIso03_all") >= float(IDdict['reliso03']) : return False
-    if 'reliso04' in IDdict and obj.__getattr__("pfRelIso04_all") >= float(IDdict['reliso04']) : return False
-    if 'sip3d' in IDdict and obj.__getattr__("sip3d") <= float(IDdict['sip3d']) : return False
+    if 'pog_tight' in IDdict and obj.tightId is not str2bool(IDdict['pog_tight']) : return False
+    if 'pog_medium' in IDdict and obj.mediumId is not str2bool(IDdict['pog_medium']) : return False 
+    if 'dxy' in IDdict and obj.dxy >= float(IDdict['dxy']) :  return False
+    if 'dz' in IDdict and obj.dz >= float(IDdict['dz']) :  return False
+    if 'reliso03' in IDdict and obj.pfRelIso03_all >= float(IDdict['reliso03']) : return False
+    if 'reliso04' in IDdict and obj.pfRelIso04_all >= float(IDdict['reliso04']) : return False
+    if 'sip3d' in IDdict and obj.sip3d <= float(IDdict['sip3d']) : return False
     return True
 
   else : 
@@ -97,17 +97,14 @@ def IsCustomElectronID(ID,obj) :
 def IsCustomJetID(ID,obj) :
   filename = os.getcwd()+jet_dir+ID+".txt"; IDdict = dict()
   if os.path.exists(filename) :
-    with open(filename) as CustomIDFile :
-      for line in MuonIDFile:
+    with open(filename) as JetIDFile :
+      for line in JetIDFile:
 	(key,val) = line.split()
 	IDdict[key] = val
 
     if abs(obj.p4().Eta()) > float(IDdict['eta']) :  return False
-    if obj.p4().Pt() < float(IDdict['pt']) : return False  
-#    if obj.__getattr__("tightId") is not str2bool(IDdict['pog_tight']) : return False
-#    if obj.__getattr__("mediumId") is not str2bool(IDdict['pog_medium']) : return False 
-    if obj.__getattr__("dxy") < float(IDdict['dxy']) :  return False
-    if obj.__getattr__("dz") < float(IDdict['dz']) :  return False
+    if obj.p4().Pt() < float(IDdict['pt']) : return False 
+    if 'jetId' in IDdict and obj.__getattr__("jetId") is not IDdict['jetId'] : return False 
 #    if obj.__getattr__("pfRelIso03_all") > float(IDdict['reliso']) : return False
     return True
   else :
@@ -117,18 +114,18 @@ def IsCustomJetID(ID,obj) :
 def IsCustomPhotonID(ID,obj) :
   filename = os.getcwd()+pho_dir+ID+".txt"; IDdict = dict()
   if os.path.exists(filename) :
-    with open(filename) as ElectronIDFile :
-      for line in ElectronIDFile:
+    with open(filename) as PhotonIDFile :
+      for line in PhotonIDFile:
 	(key,val) = line.split()
 	IDdict[key] = val
 
     if abs(obj.p4().Eta()) <= float(IDdict['eta']) :  return False
     if 'pt' in IDdict and obj.p4().Pt() >= float(IDdict['pt']) : return False  
-    if 'dxy' in IDdict and obj.__getattr__("dxy") >= float(IDdict['dxy']) :  return False
-    if 'dz' in IDdict and obj.__getattr__("dz") >= float(IDdict['dz']) :  return False
-    if 'reliso' in IDdict and  obj.__getattr__("pfRelIso03_all") > float(IDdict['reliso']) : return False
+    if 'dxy' in IDdict and obj.dxy >= float(IDdict['dxy']) :  return False
+    if 'dz' in IDdict and obj.dz >= float(IDdict['dz']) :  return False
+    if 'reliso' in IDdict and  obj.pfRelIso03_all > float(IDdict['reliso']) : return False
 #    if obj.__getattr__("tightCharge") is not int(IDdict['tightcharge']) : return False
-    if 'convVeto' in IDdict and obj.__getattr__("convVeto") is not str2bool(IDdict['convVeto']) : return False
+    if 'convVeto' in IDdict and obj.convVeto is not str2bool(IDdict['convVeto']) : return False
     return True
   else :
    print(ID+".txt doesn't exist in "+mu_dir) 
