@@ -74,22 +74,26 @@ class MonojetSR(Module):
 	rawjets = Collection(event, "Jet")  
 	rawphotons = Collection(event, "Photon") 
 	rawfatjets = Collection(event, "FatJet") 
+	rawtaus = Collection(event, "Tau")
 
+	# METs for cuts
 	met = Object(event, "MET") 
-	CaloMET = Object(event,"CaloMET") 
+	calomet = Object(event, "CaloMET") 
+	pfmet = Object(event, "ChsMET")
+	trackmet = Object(event, "TkMET")
 
-	electrons = [] 
-	muons = []
-	jets = [] 
-	photons = [] 
-	deltaPhiRecoilJets = [] 
-	fatjets=[] 
+	electrons = []  ; loose_electrons = [] 
+	muons = [] ; loose_muons = []
+	photons = [] ; loose_photons = [] ; 
+
+	fatjets=[] ; jets = []
 	vtagfatjets = []
+	taus = []
 	
-	HadronicRecoil = ROOT.TLorentzVector() 
+	HadronicRecoil = ROOT.TLorentzVector() ; deltaPhiRecoilJets = []
 
 	# OBJECT DEFINITION
-	# - HadronicRecoil = MET + (leptons+photons)
+	# - HadronicRecoil = MET + pT_(leptons+photons)
 
 	HadronicRecoil += met.met_p4()
 
@@ -98,12 +102,22 @@ class MonojetSR(Module):
 	for rawelectron in rawelectrons :
 	  HadronicRecoil += rawelectron.p4()
           electrons.append(rawelectron)
+	  if rawelectron.cutBased is 1 and rawelectron.pt > 10 and abs(rawelectron.eta) < 2.5 :
+	    loose_electrons.append(rawelectron)
+
+	# Tau
+
+	for rawtau in taus : 
+	  if rawtau.pt > 18 and abs(rawtau.eta) < 2.3 and rawtau.idMVAoldDM2017v2 is 2 :
+            taus.append(rawtau)
 
 	# Muon
 
 	for rawmuon in rawmuons :
 	  HadronicRecoil += rawmuon.p4()
 	  muons.append(rawmuon)
+	  if rawmuon.looseId and rawmuon.pt > 10 and abs(rawmuon.eta) < 2.4 : 
+	    loose_muons.append(rawmuon)
 
 	# Jet
 	# - pT > 30 && |eta| < 2.5 (done)
@@ -119,7 +133,9 @@ class MonojetSR(Module):
 	for rawphoton in rawphotons :
 	  HadronicRecoil += rawphoton.p4()
 	  photons.append(rawphoton)
-	
+	  if rawphoton.cutBased is 1 and rawphoton.pt > 15 and abs(rawphoton.eta) < 2.5 :
+	    loose_photons.append(rawphoton)	
+
 	# V-Tagged AK8 Jets
 	# - nominal tagger (WvsQCD, no MD) > 0.458
 
@@ -131,17 +147,17 @@ class MonojetSR(Module):
 	    vtagfatjets.append(fatjet)
 	
 	electrons.sort(key=lambda x : x.p4().Pt()) ; muons.sort(key=lambda x : x.p4().Pt()) ; jets.sort(key=lambda x : x.p4().Pt()) 
-        fatjets.sort(key=lambda x : x.p4().Pt()) ; vtagfatjets.sort(key=lambda x : x.p4().Pt()) 
+        fatjets.sort(key=lambda x : x.p4().Pt()) ; vtagfatjets.sort(key=lambda x : x.p4().Pt()) ; taus.sort(key=lambda x : x.p4().Pt())
 
 	if len(jets) is not 0 :
 	  for i in range(0,min(4,len(jets))) :
-	    deltaPhiRecoilJets.append(abs(deltaPhi(jets[i].phi,HadronicRecoil.Pt())))
+	    deltaPhiRecoilJets.append(abs(deltaPhi(jets[i].phi,HadronicRecoil.Phi())))
 
 	# EVENT SELECTION
 
 	# 1. Signal Region Baseline Event Selection
 	# - one or more jets with HadronicRecoil > 250 GeV 
-	# - min(deltaPhi(MET,{jets})>0.5 for QCD suppression
+	# - min(deltaPhi(recoil,{jets})>0.5 for QCD suppression
 	# - Lepton and photon vetoing + b-tagged jets (TODO)
 
 	if len(jets) is 0 or HadronicRecoil.Pt() <= 250 : return False
@@ -156,11 +172,8 @@ class MonojetSR(Module):
 
 	if len(vtagfatjets) is not 0 and vtagfatjets[0].pt > 250 and abs(vtagfatjets[0].eta) < 2.4 :
 	  if vtagfatjets[0].msoftdrop > 65 and vtagfatjets[0].msoftdrop < 120 :
-#	    if vtagfatjets[0].neHEF < 0.8 and vtagfatjets[0].chHEF > 0.1 :
 	    return False
 	self.Cutflow.Fill(3)
-
-#	if len(fatjets) is not 0 and fatjets[0].deepTag_WvsQCD > 0.458 and fatjets[0].pt > 250 and abs(fatjets[0].eta) < 2.4 and fatjets[0].msoftdrop > 65 and fatjets[0].msoftdrop < 120 : return False
 
 	# 3. Monojet SR Selection
 	# - among events that fail the Mono-V selection
@@ -168,7 +181,24 @@ class MonojetSR(Module):
 
 	if jets[0].pt < 100 or abs(jets[0].eta) > 2.4 : return False
 	if jets[0].neHEF >= 0.8 or jets[0].chHEF <= 0.1 : return False
-	self.Cutflow.Fill(4)
+	self.Cutflow.Fill(4) 
+
+	# 4. Background suppression 
+	# - W+jets : veto events containing one or more loose leptons with pT > 10 GeV or hadronically decaying tau with pT >18 GeV
+	# - EW : veto events containing one or more loose isolated photons with pT > 15 GeV and abseta < 2.5
+	# - Top : veto events with b-jet && pT > 20 && abseta < 2.4
+	# - MET : deltaPt , deltaPhi
+
+#	if len(loose_muons) is not 0 or len(loose_electrons) is not 0 : return False
+#	if len(taus) is not 0 and taus[0].pt > 18 : return False 
+#	self.Cutflow.Fill(5)	
+
+#	if len(loose_photons) is not 0 : return False
+#	self.Cutflow.Fill(6)
+
+#	if (pfmet.pt - calomet.pt)/HadronicRecoil.Pt() >= 0.5 : return False
+#	if deltaPhi(trackmet,pfmet) >= 2 : return False
+#	self.Cutflow.Fill(7)
 
 	# this seems so stupid but i don't have any better way to do this yet
 	h_mupt = [self.muon0_pt,self.muon1_pt]#self.muon2_pt,self.muon3_pt]
@@ -230,7 +260,7 @@ class MonojetSR(Module):
 
         return True
 
-parser = argparse.ArgumentParser(description='FastSim NanoAOD validation tool (wip)')
+parser = argparse.ArgumentParser(description='FastSim EXO-20-004 Monojet Analysis Validation Tool (SR)')
 parser.add_argument('-d', dest='directory',default="")
 parser.add_argument('-o', dest='output',default="histOut.root")
 args = parser.parse_args()
