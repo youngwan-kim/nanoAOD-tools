@@ -62,7 +62,7 @@ class MonojetSR(Module):
 	self.addObject(ROOT.TH1F('Nel','Nel',6,0,6))
 	self.addObject(ROOT.TH1F('Npho','Npho',6,0,6))
 	self.addObject(ROOT.TH1F('Cutflow','Cutflow',6,0,6))
- 
+ 	self.addObject(ROOT.TH1F('TotalEvents','TotalEvents',2,0,2))
 
     def analyze(self, event):
 
@@ -182,6 +182,7 @@ class MonojetSR(Module):
 	if jets[0].pt < 100 or abs(jets[0].eta) > 2.4 : return False
 	if jets[0].neHEF >= 0.8 or jets[0].chHEF <= 0.1 : return False
 	self.Cutflow.Fill(4) 
+        self.TotalEvents.Fill(0)
 
 	# 4. Background suppression 
 	# - W+jets : veto events containing one or more loose leptons with pT > 10 GeV or hadronically decaying tau with pT >18 GeV
