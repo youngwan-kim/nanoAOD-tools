@@ -53,6 +53,7 @@ class ExampleAnalysis(Module):
 	self.addObject(ROOT.TH1F('Njet','Njet',20,0,20))
 	self.addObject(ROOT.TH1F('Nmu','Nmu',6,0,6))
 	self.addObject(ROOT.TH1F('Nel','Nel',6,0,6))
+	self.addObject(ROOT.TH1F('TotalEvents','TotalEvents',2,0,2))
 #	self.addObject(ROOT.TH1F('LHEpart_pdgid','LHEpart_pdgid',50,-25,25))
 #	self.addObject(ROOT.TH1F('LHEpart_pt','LHEpart_pt',200,0,1000))
  
@@ -130,7 +131,7 @@ class ExampleAnalysis(Module):
 	#	    candmass = 0 ; candmass+=muons[i].M()
 	#	    self.m_ll.Fill(candmass)
 	######
-
+	self.TotalEvents.Fill(0)
         return True
 
 parser = argparse.ArgumentParser(description='FastSim NanoAOD validation tool (wip)')
